@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
+import { Card, PageHead } from "@/components/ui";
 
 // Role options mirror the agent's role families (job_agent/tailor.py FAMILY_FOCUS),
 // so each uploaded resume maps straight onto the agent's per-family master resume.
@@ -29,11 +31,14 @@ const EMPTY: Base = {
 
 type Entry = { role: string; file: File | null };
 
+const STEPS = ["About you", "Roles & resumes", "Review & consent"];
+
 function labelFor(code: string) {
   return ROLES.find((r) => r.code === code)?.label ?? code;
 }
 
 export default function GetStarted() {
+  const [step, setStep] = useState(0);
   const [base, setBase] = useState<Base>(EMPTY);
   const [entries, setEntries] = useState<Entry[]>([{ role: "data_analyst", file: null }]);
   const [consent, setConsent] = useState(false);
@@ -79,26 +84,38 @@ export default function GetStarted() {
     setEntries((es) => es.map((e, idx) => (idx === i ? { ...e, file } : e)));
   }
 
+  // --- per-step validation; returns true when the step is OK to leave ----
+  function validateStep(s: number): string | null {
+    if (s === 0) {
+      if (!base.full_name.trim() || !base.email.trim()) return "Name and email are required.";
+    }
+    if (s === 1) {
+      const complete = entries.filter((en) => en.role && en.file);
+      if (complete.length === 0) return "Add at least one target role with a resume.";
+      const missing = entries.filter((en) => en.role && !en.file);
+      if (missing.length)
+        return `Attach a resume for every targeted role — missing: ${missing.map((m) => labelFor(m.role)).join(", ")}. The agent only applies to a role once it has a matching resume.`;
+    }
+    return null;
+  }
+
+  function next() {
+    const err = validateStep(step);
+    if (err) { setError(err); return; }
+    setError(null);
+    setStep((s) => Math.min(s + 1, STEPS.length - 1));
+  }
+  function back() {
+    setError(null);
+    setStep((s) => Math.max(s - 1, 0));
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (!base.full_name.trim() || !base.email.trim()) {
-      setError("Name and email are required.");
-      return;
-    }
-    const complete = entries.filter((en) => en.role && en.file);
-    if (complete.length === 0) {
-      setError("Add at least one target role with a resume.");
-      return;
-    }
-    const missing = entries.filter((en) => en.role && !en.file);
-    if (missing.length) {
-      setError(
-        `Attach a resume for every targeted role — missing: ${missing.map((m) => labelFor(m.role)).join(", ")}. ` +
-          "The agent only applies to a role once it has a matching resume.",
-      );
-      return;
-    }
+    // Re-run both data steps' validation before writing.
+    const err = validateStep(0) || validateStep(1);
+    if (err) { setError(err); return; }
     if (!consent) {
       setError("Please give permission for the agent to search and apply on your behalf.");
       return;
@@ -153,125 +170,174 @@ export default function GetStarted() {
           you&apos;re targeting: <b>{done.join(", ")}</b>.</p>
         <p>With your permission, the agent will match each resume to its role and start finding and
           preparing applications for your review.</p>
-        <p className="note">Your details and files are stored privately — write-only from this page,
-          never readable by other visitors.</p>
+        <p className="note">Your details and files are stored privately — only you can read them;
+          they are never visible to other visitors.</p>
+        <div className="cluster" style={{ marginTop: 16 }}>
+          <Link className="btn" href="/dashboard">Go to your dashboard →</Link>
+          <Link className="btn ghost" href="/jobs">Browse jobs</Link>
+        </div>
       </div>
     );
   }
 
   return (
     <>
-      <h2 className="section">
-        Get started<span className="sub">add a resume for each role you want the agent to apply to</span>
-        {userEmail ? <span className="sub" style={{ marginLeft: "auto" }}>signed in as {userEmail}</span> : null}
-      </h2>
-      <form className="card" onSubmit={submit}>
-        <div className="form-grid">
-          <div>
-            <label className="field">Full name <span className="req">*</span></label>
-            <input value={base.full_name} onChange={set("full_name")} required />
-          </div>
-          <div>
-            <label className="field">Email <span className="req">*</span></label>
-            <input type="email" value={base.email} onChange={set("email")} required />
-          </div>
-          <div>
-            <label className="field">Phone</label>
-            <input value={base.phone} onChange={set("phone")} />
-          </div>
-          <div>
-            <label className="field">Preferred locations</label>
-            <input value={base.preferred_locations} onChange={set("preferred_locations")} placeholder="e.g. Bengaluru, Remote" />
-          </div>
-          <div>
-            <label className="field">Work mode</label>
-            <select value={base.work_mode} onChange={set("work_mode")}>
-              <option value="any">Any</option>
-              <option value="remote">Remote</option>
-              <option value="hybrid">Hybrid</option>
-              <option value="onsite">Onsite</option>
-            </select>
-          </div>
-          <div>
-            <label className="field">Years of experience</label>
-            <input type="number" min="0" step="0.5" value={base.experience_years} onChange={set("experience_years")} />
-          </div>
-          <div>
-            <label className="field">Expected salary</label>
-            <input value={base.expected_salary} onChange={set("expected_salary")} placeholder="e.g. 12 LPA" />
-          </div>
-          <div>
-            <label className="field">LinkedIn URL</label>
-            <input value={base.linkedin_url} onChange={set("linkedin_url")} placeholder="https://linkedin.com/in/…" />
-          </div>
-          <div>
-            <label className="field">Portfolio URL</label>
-            <input value={base.portfolio_url} onChange={set("portfolio_url")} />
-          </div>
-          <div>
-            <label className="field">GitHub URL</label>
-            <input value={base.github_url} onChange={set("github_url")} />
-          </div>
-          <div className="field-full">
-            <label className="field">Anything else the agent should know?</label>
-            <textarea value={base.notes} onChange={set("notes")} placeholder="Constraints, must-haves, companies to avoid…" />
-          </div>
-        </div>
+      <PageHead
+        title="Get started"
+        subtitle="Add a resume for each role you want the agent to apply to."
+        actions={userEmail ? <span className="chip outline">signed in as {userEmail}</span> : undefined}
+      />
 
-        <div className="section-title" style={{ marginTop: 22 }}>
-          <h3 style={{ margin: 0, fontSize: 13, textTransform: "uppercase", letterSpacing: ".6px", color: "var(--muted)" }}>
-            Target roles &amp; resumes
-          </h3>
-        </div>
-        <p className="note" style={{ marginTop: 0 }}>
-          Add every role you want to apply for and attach a tailored resume for each. The agent applies
-          to a role <b>only</b> when it has a matching resume.
-        </p>
-
-        {entries.map((en, i) => (
-          <div key={i} className="form-grid" style={{ alignItems: "end", marginBottom: 10 }}>
-            <div>
-              <label className="field">Target role</label>
-              <select value={en.role} onChange={(e) => setRole(i, e.target.value)}>
-                {availableFor(en.role).map((r) => (
-                  <option key={r.code} value={r.code}>{r.label}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="field">Resume {en.file ? "✓" : ""}</label>
-              <input type="file" accept=".pdf,.doc,.docx"
-                onChange={(e) => setFile(i, e.target.files?.[0] ?? null)} />
-            </div>
-            <div>
-              {entries.length > 1 ? (
-                <button type="button" className="btn" style={{ background: "var(--chip)", color: "var(--ink)" }}
-                  onClick={() => removeEntry(i)}>Remove</button>
-              ) : null}
-            </div>
+      {/* Step indicator */}
+      <div className="steps" role="list">
+        {STEPS.map((label, i) => (
+          <div key={label} role="listitem" className={`step ${i === step ? "on" : i < step ? "done" : ""}`} aria-current={i === step ? "step" : undefined}>
+            <span className="n">{i < step ? "✓" : i + 1}</span>
+            {label}
           </div>
         ))}
+      </div>
 
-        {entries.length < ROLES.length ? (
-          <button type="button" className="btn" style={{ background: "var(--chip)", color: "var(--ink)" }} onClick={addEntry}>
-            + Add another role
-          </button>
+      <form onSubmit={submit}>
+        {/* STEP 1 — About you */}
+        {step === 0 ? (
+          <Card>
+            <div className="form-grid">
+              <div>
+                <label className="field" htmlFor="full_name">Full name <span className="req">*</span></label>
+                <input id="full_name" value={base.full_name} onChange={set("full_name")} required />
+              </div>
+              <div>
+                <label className="field" htmlFor="email">Email <span className="req">*</span></label>
+                <input id="email" type="email" value={base.email} onChange={set("email")} required />
+              </div>
+              <div>
+                <label className="field" htmlFor="phone">Phone</label>
+                <input id="phone" value={base.phone} onChange={set("phone")} />
+              </div>
+              <div>
+                <label className="field" htmlFor="locs">Preferred locations</label>
+                <input id="locs" value={base.preferred_locations} onChange={set("preferred_locations")} placeholder="e.g. Bengaluru, Remote" />
+              </div>
+              <div>
+                <label className="field" htmlFor="work_mode">Work mode</label>
+                <select id="work_mode" value={base.work_mode} onChange={set("work_mode")}>
+                  <option value="any">Any</option>
+                  <option value="remote">Remote</option>
+                  <option value="hybrid">Hybrid</option>
+                  <option value="onsite">Onsite</option>
+                </select>
+              </div>
+              <div>
+                <label className="field" htmlFor="exp">Years of experience</label>
+                <input id="exp" type="number" min="0" step="0.5" value={base.experience_years} onChange={set("experience_years")} />
+              </div>
+              <div>
+                <label className="field" htmlFor="sal">Expected salary</label>
+                <input id="sal" value={base.expected_salary} onChange={set("expected_salary")} placeholder="e.g. 12 LPA" />
+              </div>
+              <div>
+                <label className="field" htmlFor="li">LinkedIn URL</label>
+                <input id="li" value={base.linkedin_url} onChange={set("linkedin_url")} placeholder="https://linkedin.com/in/…" />
+              </div>
+              <div>
+                <label className="field" htmlFor="pf">Portfolio URL</label>
+                <input id="pf" value={base.portfolio_url} onChange={set("portfolio_url")} />
+              </div>
+              <div>
+                <label className="field" htmlFor="gh">GitHub URL</label>
+                <input id="gh" value={base.github_url} onChange={set("github_url")} />
+              </div>
+              <div className="field-full">
+                <label className="field" htmlFor="notes">Anything else the agent should know?</label>
+                <textarea id="notes" value={base.notes} onChange={set("notes")} placeholder="Constraints, must-haves, companies to avoid…" />
+              </div>
+            </div>
+          </Card>
         ) : null}
 
-        <label className="consent" style={{ marginTop: 18 }}>
-          <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
-          <span className="note">
-            I give the Job Agent permission to search for jobs matching these roles and to prepare
-            applications, using the matching resume for each role, for my review.
-          </span>
-        </label>
+        {/* STEP 2 — Roles & resumes */}
+        {step === 1 ? (
+          <Card>
+            <p className="note mt-0">
+              Add every role you want to apply for and attach a tailored resume for each. The agent
+              applies to a role <b>only</b> when it has a matching resume.
+            </p>
+            {entries.map((en, i) => (
+              <div key={i} className="entry-row">
+                <div>
+                  <label className="field">Target role</label>
+                  <select value={en.role} onChange={(e) => setRole(i, e.target.value)}>
+                    {availableFor(en.role).map((r) => (
+                      <option key={r.code} value={r.code}>{r.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="field">Resume {en.file ? "✓" : ""}</label>
+                  <input type="file" accept=".pdf,.doc,.docx"
+                    onChange={(e) => setFile(i, e.target.files?.[0] ?? null)} />
+                </div>
+                <div>
+                  {entries.length > 1 ? (
+                    <button type="button" className="btn subtle" onClick={() => removeEntry(i)}>Remove</button>
+                  ) : null}
+                </div>
+              </div>
+            ))}
+            {entries.length < ROLES.length ? (
+              <button type="button" className="btn ghost" onClick={addEntry}>+ Add another role</button>
+            ) : null}
+          </Card>
+        ) : null}
+
+        {/* STEP 3 — Review & consent */}
+        {step === 2 ? (
+          <div className="stack">
+            <Card>
+              <h3>Your details</h3>
+              <div className="row"><span className="muted">Name</span><b>{base.full_name || "—"}</b></div>
+              <div className="row"><span className="muted">Email</span><b>{base.email || "—"}</b></div>
+              <div className="row"><span className="muted">Phone</span><b>{base.phone || "—"}</b></div>
+              <div className="row"><span className="muted">Preferred locations</span><b>{base.preferred_locations || "—"}</b></div>
+              <div className="row"><span className="muted">Work mode</span><b style={{ textTransform: "capitalize" }}>{base.work_mode}</b></div>
+              <div className="row"><span className="muted">Experience</span><b>{base.experience_years ? `${base.experience_years} yrs` : "—"}</b></div>
+              <div className="row"><span className="muted">Expected salary</span><b>{base.expected_salary || "—"}</b></div>
+            </Card>
+            <Card>
+              <h3>Target roles &amp; resumes</h3>
+              {entries.map((en, i) => (
+                <div className="row" key={i}>
+                  <span>{labelFor(en.role)}</span>
+                  <span className={en.file ? "pill good" : "pill warn"}>{en.file ? en.file.name : "no resume"}</span>
+                </div>
+              ))}
+            </Card>
+            <label className="consent">
+              <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
+              <span className="note">
+                I give the Job Agent permission to search for jobs matching these roles and to prepare
+                applications, using the matching resume for each role, for my review. <b>Nothing is
+                submitted without my approval.</b>
+              </span>
+            </label>
+          </div>
+        ) : null}
 
         {error ? <div className="error">{error}</div> : null}
 
-        <div style={{ marginTop: 16 }}>
-          <button className="btn" type="submit" disabled={busy}>
-            {busy ? "Uploading…" : "Submit details & resumes"}
-          </button>
+        <div className="wizard-nav">
+          {step > 0 ? (
+            <button type="button" className="btn ghost" onClick={back} disabled={busy}>← Back</button>
+          ) : null}
+          <div className="spacer" />
+          {step < STEPS.length - 1 ? (
+            <button type="button" className="btn" onClick={next}>Continue →</button>
+          ) : (
+            <button className="btn" type="submit" disabled={busy || !consent}>
+              {busy ? "Uploading…" : "Submit details & resumes"}
+            </button>
+          )}
         </div>
       </form>
     </>

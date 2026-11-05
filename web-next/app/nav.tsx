@@ -5,18 +5,22 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 
-// Shown only after sign-in.
+// Shown only after sign-in. Routes are stable; labels follow the redesign.
 const APP_LINKS = [
   { href: "/dashboard", label: "Dashboard" },
-  { href: "/jobs", label: "Jobs" },
+  { href: "/jobs", label: "Discovery" },
   { href: "/applications", label: "Applications" },
-  { href: "/get-started", label: "Job hunt" },
+  { href: "/agent", label: "Agent" },
+  { href: "/intelligence", label: "Intelligence" },
+  { href: "/resume-studio", label: "Resumes" },
 ];
 
 export default function Nav() {
   const path = usePathname();
   const router = useRouter();
   const [email, setEmail] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
+  const [theme, setTheme] = useState<"dark" | "light">("dark");
 
   useEffect(() => {
     const supabase = createClient();
@@ -26,6 +30,34 @@ export default function Nav() {
     );
     return () => sub.subscription.unsubscribe();
   }, []);
+
+  // Restore saved theme (defaults to the premium dark theme).
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("emc-theme");
+      if (saved === "light") {
+        document.documentElement.setAttribute("data-theme", "light");
+        setTheme("light");
+      }
+    } catch {
+      /* storage may be blocked — dark default is fine */
+    }
+  }, []);
+
+  // Close the mobile menu on navigation.
+  useEffect(() => setOpen(false), [path]);
+
+  function toggleTheme() {
+    const next = theme === "dark" ? "light" : "dark";
+    setTheme(next);
+    if (next === "light") document.documentElement.setAttribute("data-theme", "light");
+    else document.documentElement.removeAttribute("data-theme");
+    try {
+      localStorage.setItem("emc-theme", next);
+    } catch {
+      /* ignore */
+    }
+  }
 
   async function signOut() {
     const supabase = createClient();
@@ -37,22 +69,51 @@ export default function Nav() {
 
   return (
     <header className="top">
-      <Link href="/" style={{ textDecoration: "none" }}>
-        <h1 title="Error Makes Clever">EMC <span style={{ color: "var(--muted)", fontWeight: 500 }}>· Error Makes Clever</span></h1>
+      <Link href="/" style={{ textDecoration: "none", color: "inherit" }}>
+        <h1 title="Error Makes Clever">
+          <span className="logo-mark" aria-hidden>EMC</span>
+          <span>EMC</span>
+          <span className="sub" style={{ marginLeft: 0 }}>Error Makes Clever</span>
+        </h1>
       </Link>
+
       {email ? (
-        <nav>
-          {APP_LINKS.map((l) => (
-            <Link key={l.href} href={l.href} className={path === l.href ? "on" : ""}>
-              {l.label}
-            </Link>
-          ))}
-        </nav>
+        <>
+          <button
+            className="icon-btn nav-toggle"
+            aria-label="Toggle menu"
+            aria-expanded={open}
+            onClick={() => setOpen((o) => !o)}
+          >
+            ☰
+          </button>
+          <nav className={open ? "open" : ""}>
+            {APP_LINKS.map((l) => (
+              <Link
+                key={l.href}
+                href={l.href}
+                aria-current={path === l.href ? "page" : undefined}
+                className={path === l.href ? "on" : ""}
+              >
+                {l.label}
+              </Link>
+            ))}
+          </nav>
+        </>
       ) : null}
+
       <span className="badge">
+        <button
+          className="icon-btn"
+          onClick={toggleTheme}
+          aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
+          title="Toggle theme"
+        >
+          {theme === "dark" ? "☀" : "☾"}
+        </button>
         {email ? (
           <>
-            {email} ·{" "}
+            <Link href="/profile" className="who" title="Profile & preferences">{email}</Link>
             <a href="#" onClick={(e) => { e.preventDefault(); signOut(); }}>Sign out</a>
           </>
         ) : (

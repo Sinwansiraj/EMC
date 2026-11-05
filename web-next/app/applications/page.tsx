@@ -1,5 +1,8 @@
+import Link from "next/link";
 import { db } from "@/lib/supabase";
 import type { Application } from "@/lib/types";
+import { PageHead, ErrorState, EmptyState } from "@/components/ui";
+import ApplicationsBoard from "./ApplicationsBoard";
 
 export const revalidate = 60;
 
@@ -10,47 +13,37 @@ export default async function ApplicationsPage() {
     .select("*")
     .order("score", { ascending: false });
 
-  if (error) return <div className="empty">Could not load applications: {error.message}</div>;
-  if (!apps?.length) return <div className="empty">No applications yet.</div>;
+  if (error) {
+    return (
+      <>
+        <PageHead title="Application Center" />
+        <ErrorState title="Couldn’t load applications">{error.message}</ErrorState>
+      </>
+    );
+  }
+
+  if (!apps?.length) {
+    return (
+      <>
+        <PageHead title="Application Center" subtitle="Every decision the agent made, with its reasoning." />
+        <EmptyState
+          icon="🗂️"
+          title="No applications yet"
+          action={<Link className="btn" href="/jobs">Browse discovered jobs →</Link>}
+        >
+          Once the agent prepares applications, they’ll appear here for your review.
+        </EmptyState>
+      </>
+    );
+  }
 
   return (
     <>
-      <h2 className="section">
-        Applications<span className="sub">every decision the agent made, with its reasoning</span>
-      </h2>
-      <div className="card table">
-        <table>
-          <thead>
-            <tr>
-              <th>Score</th><th>Role</th><th>Status</th><th>Resume</th><th>Why selected</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(apps as Application[]).map((a) => (
-              <tr key={a.id}>
-                <td className="score">{(a.score ?? 0).toFixed(0)}</td>
-                <td>
-                  {a.url ? (
-                    <a href={a.url} target="_blank" rel="noopener noreferrer"><b>{a.title}</b></a>
-                  ) : (
-                    <b>{a.title}</b>
-                  )}
-                  <div className="muted">@ {a.company} · {a.platform}</div>
-                  {a.submitted_at ? (
-                    <div className="muted" style={{ fontSize: 12 }}>
-                      submitted {a.submitted_at.slice(0, 10)}
-                      {a.verification ? ` · ${a.verification}` : ""}
-                    </div>
-                  ) : null}
-                </td>
-                <td><span className={`st ${a.status}`}>{a.status}</span></td>
-                <td className="muted">{a.resume_version || "—"}</td>
-                <td className="muted">{a.selection_reason}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <PageHead
+        title="Application Center"
+        subtitle={`${apps.length} applications — every decision the agent made, with its reasoning.`}
+      />
+      <ApplicationsBoard apps={apps as Application[]} />
     </>
   );
 }
