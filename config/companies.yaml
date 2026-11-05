@@ -1,0 +1,22 @@
+# Companies whose public job boards the agent polls through official ATS APIs.
+# Find a company's board token from its careers URL:
+#   boards.greenhouse.io/<token>   or job-boards.greenhouse.io/<token>  -> greenhouse
+#   jobs.lever.co/<token>                                            -> lever
+#   jobs.ashbyhq.com/<token>                                         -> ashby
+#   apply.workable.com/<token>                                       -> workable
+# Then run:  python -m job_agent check-boards   (reports tokens that don't resolve)
+#
+# The entries below are EXAMPLES to show the format. Replace them with companies you
+# actually want to work for — check-boards will tell you which tokens are valid.
+
+greenhouse: []
+#  - example-company-token
+
+lever: []
+#  - example-company-token
+
+ashby: []
+#  - example-company-token
+
+workable: []
+#  - example-company-token

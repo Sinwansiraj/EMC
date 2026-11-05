@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Job Agent</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --panel:#ffffff; --ink:#1b1d22; --muted:#6b7280; --line:#e6e8ec;
+    --accent:#3b5bdb; --accent-ink:#fff; --good:#1a7f4b; --warn:#9a6700; --bad:#b4232c;
+    --chip:#eef1f6; --shadow:0 1px 2px rgba(16,24,40,.06),0 1px 3px rgba(16,24,40,.1);
+  }
+  :root:not([data-theme="light"]){ }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --bg:#0f1115; --panel:#171a21; --ink:#e7e9ee; --muted:#9aa2b1; --line:#262b35;
+      --accent:#6b84 f0; --accent:#6b84f0; --chip:#1e232d;
+      --shadow:0 1px 2px rgba(0,0,0,.4);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0f1115; --panel:#171a21; --ink:#e7e9ee; --muted:#9aa2b1; --line:#262b35;
+    --accent:#6b84f0; --chip:#1e232d; --shadow:0 1px 2px rgba(0,0,0,.4);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  header{display:flex;align-items:center;gap:16px;padding:14px 20px;border-bottom:1px solid var(--line);background:var(--panel);position:sticky;top:0;z-index:5}
+  header h1{font-size:16px;margin:0;font-weight:650;letter-spacing:.2px}
+  header .dot{width:9px;height:9px;border-radius:50%;background:var(--muted);box-shadow:0 0 0 3px var(--chip)}
+  header .dot.ok{background:var(--good)} header .dot.err{background:var(--bad)}
+  nav{display:flex;gap:4px;margin-left:8px}
+  nav button{background:none;border:0;color:var(--muted);font:inherit;font-weight:550;padding:7px 12px;border-radius:8px;cursor:pointer}
+  nav button:hover{background:var(--chip);color:var(--ink)}
+  nav button.on{background:var(--accent);color:var(--accent-ink)}
+  .tools{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+  main{max-width:1100px;margin:0 auto;padding:22px 16px 60px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;box-shadow:var(--shadow)}
+  .card h3{margin:0 0 10px;font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);font-weight:650}
+  .big{font-size:30px;font-weight:700;line-height:1.1}
+  .row{display:flex;justify-content:space-between;gap:10px;padding:3px 0;border-bottom:1px dashed var(--line)}
+  .row:last-child{border:0}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:650}
+  tr:hover td{background:var(--chip)}
+  .chip{display:inline-block;background:var(--chip);border-radius:999px;padding:1px 9px;font-size:12px;font-weight:600;color:var(--muted)}
+  .score{font-variant-numeric:tabular-nums;font-weight:700}
+  .btn{background:var(--accent);color:var(--accent-ink);border:0;border-radius:8px;padding:8px 13px;font:inherit;font-weight:600;cursor:pointer}
+  .btn:hover{filter:brightness(1.07)} .btn:disabled{opacity:.5;cursor:default}
+  .btn.ghost{background:var(--chip);color:var(--ink)}
+  .btn.good{background:var(--good)} .btn.bad{background:var(--bad)}
+  .btn.sm{padding:5px 10px;font-size:13px}
+  a{color:var(--accent)}
+  .muted{color:var(--muted)} .conf{font-size:12px;font-weight:650;padding:1px 7px;border-radius:6px;background:var(--chip)}
+  .conf.exact{color:var(--good)} .conf.derived{color:var(--accent)} .conf.review{color:var(--warn)} .conf.unknown{color:var(--bad)}
+  select,input[type=text]{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:7px 10px;font:inherit}
+  .empty{color:var(--muted);padding:30px;text-align:center}
+  .section-title{display:flex;align-items:center;gap:10px;margin:26px 0 12px}
+  .section-title h2{font-size:15px;margin:0}
+  dialog{border:1px solid var(--line);border-radius:14px;padding:0;max-width:760px;width:94%;background:var(--panel);color:var(--ink);box-shadow:0 20px 60px rgba(0,0,0,.35)}
+  dialog::backdrop{background:rgba(10,12,16,.5)}
+  .dh{display:flex;justify-content:space-between;align-items:center;padding:16px 18px;border-bottom:1px solid var(--line)}
+  .db{padding:16px 18px;max-height:70vh;overflow:auto}
+  .kv{display:grid;grid-template-columns:140px 1fr;gap:6px 12px;font-size:14px}
+  .kv div:nth-child(odd){color:var(--muted)}
+  .ev{font-size:12.5px;border-left:2px solid var(--line);padding:4px 0 4px 10px;margin:2px 0;color:var(--muted)}
+  #toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:9px;font-size:14px;opacity:0;transition:.2s;pointer-events:none}
+  #toast.show{opacity:1}
+  .spin{display:inline-block;width:13px;height:13px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:s .6s linear infinite;vertical-align:-2px}
+  @keyframes s{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<header>
+  <span class="dot" id="health"></span>
+  <h1>Job Agent</h1>
+  <nav id="nav">
+    <button data-view="dashboard" class="on">Dashboard</button>
+    <button data-view="jobs">Jobs</button>
+    <button data-view="review">Review</button>
+    <button data-view="ask">Ask</button>
+  </nav>
+  <div class="tools">
+    <button class="btn ghost sm" data-run="discover">Discover</button>
+    <button class="btn ghost sm" data-run="score">Score</button>
+    <button class="btn ghost sm" data-run="prepare">Prepare</button>
+  </div>
+</header>
+<main id="main"><div class="empty"><span class="spin"></span> loading…</div></main>
+<div id="toast"></div>
+
+<script>
+const $ = (s,el=document)=>el.querySelector(s);
+const api = async (path, opts) => {
+  const r = await fetch('/api'+path, opts);
+  if(!r.ok){ let m; try{m=(await r.json()).detail}catch{ m=r.statusText } throw new Error(m||('HTTP '+r.status)); }
+  return r.status===204 ? null : r.json();
+};
+const toast = (m)=>{ const t=$('#toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2600); };
+const esc = (s)=> (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let view = 'dashboard';
+
+// ------------------------------------------------------------- views
+async function renderDashboard(){
+  const d = await api('/dashboard');
+  const statusRows = (arr)=> arr.length ? arr.map(r=>`<div class="row"><span>${esc(r.status)}</span><b>${r.c}</b></div>`).join('') : '<div class="muted">none yet</div>';
+  const perf = d.performance.length ? `<table><thead><tr><th>Role family</th><th>Applied</th><th>Interviews</th><th>Rate</th><th>Avg score</th></tr></thead><tbody>${
+      d.performance.map(r=>`<tr><td>${esc(r.family)||'—'}</td><td>${r.applied}</td><td>${r.interviews||0}</td><td>${r.interview_rate}%</td><td>${r.avg_score??'—'}</td></tr>`).join('')
+    }</tbody></table>` : '<div class="muted">No submitted applications yet.</div>';
+  const waiting = d.waiting_on_you.length ? d.waiting_on_you.map(r=>`<div class="row"><span><a href="#" onclick="openApp(${r.id});return false">${esc(r.title)}</a> <span class="muted">@ ${esc(r.company)}</span></span><span class="chip">${esc(r.status)}</span></div>`).join('') : '<div class="muted">Nothing waiting.</div>';
+  const fu = d.follow_ups.length ? d.follow_ups.map(r=>`<div class="row"><span>${esc(r.title)} <span class="muted">@ ${esc(r.company)}</span></span><span class="chip">due ${esc(r.follow_up_on)}</span></div>`).join('') : '<div class="muted">None due.</div>';
+  $('#main').innerHTML = `
+    <div class="grid">
+      <div class="card"><h3>Submitted today</h3><div class="big">${d.submitted_today}</div></div>
+      <div class="card"><h3>Applications by status</h3>${statusRows(d.apps_by_status)}</div>
+      <div class="card"><h3>Jobs by status</h3>${statusRows(d.jobs_by_status)}</div>
+      ${d.unverified?`<div class="card"><h3>Needs checking</h3><div class="big" style="color:var(--warn)">${d.unverified}</div><div class="muted">submitted without a confirmation page</div></div>`:''}
+    </div>
+    <div class="section-title"><h2>Waiting on you</h2></div><div class="card">${waiting}</div>
+    <div class="section-title"><h2>What's working</h2></div><div class="card">${perf}</div>
+    <div class="section-title"><h2>Follow-ups due</h2></div><div class="card">${fu}</div>`;
+}
+
+async function renderJobs(){
+  const sel = view==='jobs' && $('#jstat') ? $('#jstat').value : 'scored';
+  const d = await api('/jobs?status='+encodeURIComponent(sel)+'&limit=80');
+  const opts = ['scored','filtered','prepared','applied','discovered','duplicate']
+     .map(s=>`<option value="${s}" ${s===d.status?'selected':''}>${s} (${d.counts[s]||0})</option>`).join('');
+  const rows = d.jobs.length ? d.jobs.map(j=>`<tr>
+      <td class="score">${(j.score??0).toFixed(1)}</td>
+      <td><b>${esc(j.title)}</b><br><span class="muted">${esc(j.role_family)||''}</span></td>
+      <td>${esc(j.company)}</td>
+      <td>${esc(j.location)||''}${j.remote?' <span class="chip">remote</span>':''}</td>
+      <td><span class="chip">${esc(j.platform)}</span></td>
+      <td>${j.filter_reason?`<span class="muted">${esc(j.filter_reason)}</span>`:(j.missing&&j.missing.length?`<span class="muted">missing: ${esc(j.missing.slice(0,3).join(', '))}</span>`:'')}<br><a href="${esc(j.url)}" target="_blank" rel="noopener">posting ↗</a></td>
+    </tr>`).join('') : '';
+  $('#main').innerHTML = `
+    <div class="section-title"><h2>Jobs</h2><select id="jstat" onchange="renderJobs()">${opts}</select></div>
+    ${rows?`<div class="card" style="padding:0"><table><thead><tr><th>Score</th><th>Title</th><th>Company</th><th>Location</th><th>Platform</th><th>Notes</th></tr></thead><tbody>${rows}</tbody></table></div>`
+          :`<div class="empty">No jobs with status “${esc(d.status)}”. Try Discover → Score, or pick another status.</div>`}`;
+}
+
+async function renderReview(){
+  const d = await api('/applications?status=review');
+  const rows = d.applications.length ? d.applications.map(a=>`<tr>
+      <td class="score">${(a.score??0).toFixed(0)}</td>
+      <td><a href="#" onclick="openApp(${a.id});return false"><b>${esc(a.title)}</b></a><br><span class="muted">@ ${esc(a.company)} · ${esc(a.platform)}</span><br><span class="muted">${esc(a.selection_reason)||''}</span></td>
+      <td><span class="chip">${esc(a.status)}</span></td>
+      <td style="white-space:nowrap">
+        <button class="btn good sm" onclick="act(${a.id},'approve')">Approve</button>
+        <button class="btn bad sm" onclick="act(${a.id},'reject')">Reject</button>
+      </td></tr>`).join('') : '';
+  $('#main').innerHTML = `
+    <div class="section-title"><h2>Review queue</h2><span class="muted">approve or reject prepared applications before they're submitted</span></div>
+    ${rows?`<div class="card" style="padding:0"><table><thead><tr><th>Score</th><th>Role</th><th>Status</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`
+          :`<div class="empty">Nothing waiting for review. Run Prepare to build application packs.</div>`}`;
+}
+
+function renderAsk(){
+  $('#main').innerHTML = `
+    <div class="section-title"><h2>Ask</h2><span class="muted">test how a form question would be answered from your profile</span></div>
+    <div class="card">
+      <div style="display:flex;gap:8px"><input type="text" id="q" placeholder="e.g. Expected monthly salary?" style="flex:1" onkeydown="if(event.key==='Enter')doAsk()"><button class="btn" onclick="doAsk()">Ask</button></div>
+      <div id="ans" style="margin-top:14px"></div>
+    </div>`;
+  setTimeout(()=>$('#q')&&$('#q').focus(),50);
+}
+async function doAsk(){
+  const q = $('#q').value.trim(); if(!q) return;
+  $('#ans').innerHTML = '<span class="spin"></span>';
+  try{
+    const r = await api('/ask',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({question:q})});
+    $('#ans').innerHTML = `<div class="kv"><div>Answer</div><div><b>${esc(r.value)||'<em>(empty)</em>'}</b></div>
+      <div>Confidence</div><div><span class="conf ${esc(r.confidence)}">${esc(r.confidence)}</span></div>
+      <div>Note</div><div class="muted">${esc(r.note)||'—'}</div></div>`;
+  }catch(e){ $('#ans').innerHTML = `<span style="color:var(--bad)">${esc(e.message)}</span>`; }
+}
+
+// ------------------------------------------------------------- app detail
+async function openApp(id){
+  const dlg = $('#dlg'); $('#dlgbody').innerHTML='<span class="spin"></span>'; dlg.showModal();
+  try{
+    const d = await api('/applications/'+id);
+    const a=d.application, j=d.job;
+    const ans = d.answers.length ? `<table><thead><tr><th>Field</th><th>Answer</th><th>Confidence</th></tr></thead><tbody>${
+      d.answers.map(x=>`<tr><td>${esc(x.label)}</td><td>${esc(x.value)}</td><td><span class="conf ${esc(x.confidence)}">${esc(x.confidence)}</span></td></tr>`).join('')}</tbody></table>`
+      : '<div class="muted">No form answers recorded yet.</div>';
+    const docs = Object.entries(d.documents).filter(([,v])=>v.exists)
+      .map(([k])=>`<a class="btn ghost sm" href="/api/files/${id}/${k==='resume_path'?'resume':'cover'}" target="_blank">${k==='resume_path'?'Resume':'Cover letter'} ↗</a>`).join(' ') || '<span class="muted">no documents yet</span>';
+    const events = d.events.map(e=>`<div class="ev"><b>${esc(e.event)}</b> · ${esc(e.at)}${e.detail?' — '+esc(e.detail.slice(0,160)):''}</div>`).join('');
+    $('#dlgtitle').textContent = j.title+' @ '+j.company;
+    $('#dlgbody').innerHTML = `
+      <div class="kv">
+        <div>Status</div><div><span class="chip">${esc(a.status)}</span></div>
+        <div>Why selected</div><div>${esc(a.selection_reason)||'—'}</div>
+        <div>Score</div><div class="score">${(j.score??0).toFixed(1)}</div>
+        <div>Resume</div><div>${esc(a.resume_version)||'—'}</div>
+        <div>Approval</div><div>${esc(a.approval)||'—'}</div>
+        <div>Verification</div><div>${esc(a.verification)||'—'}</div>
+        <div>Posting</div><div><a href="${esc(j.url)}" target="_blank" rel="noopener">${esc(j.url)}</a></div>
+        <div>Documents</div><div>${docs}</div>
+      </div>
+      <div class="section-title"><h2>Form answers</h2></div>${ans}
+      <div class="section-title"><h2>Audit trail</h2></div>${events||'<div class="muted">none</div>'}
+      <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn good sm" onclick="act(${id},'approve',true)">Approve</button>
+        <button class="btn bad sm" onclick="act(${id},'reject',true)">Reject</button>
+        <select id="oc"><option value="">— set outcome —</option>${['interview','offer','rejected','withdrawn','submitted','no_response'].map(o=>`<option>${o}</option>`).join('')}</select>
+        <button class="btn ghost sm" onclick="setOutcome(${id})">Save outcome</button>
+      </div>`;
+  }catch(e){ $('#dlgbody').innerHTML = `<span style="color:var(--bad)">${esc(e.message)}</span>`; }
+}
+async function act(id, what, close){
+  try{ await api(`/applications/${id}/${what}`,{method:'POST'}); toast(`#${id} ${what==='approve'?'approved':'rejected'}`);
+    if(close) $('#dlg').close(); refresh();
+  }catch(e){ toast(e.message); }
+}
+async function setOutcome(id){
+  const v = $('#oc').value; if(!v) return;
+  try{ await api(`/applications/${id}/status`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({outcome:v})});
+    toast(`#${id} → ${v}`); $('#dlg').close(); refresh();
+  }catch(e){ toast(e.message); }
+}
+
+// ------------------------------------------------------------- pipeline
+async function runStage(stage, btn){
+  btn.disabled=true; const old=btn.innerHTML; btn.innerHTML='<span class="spin"></span> '+stage;
+  try{
+    const r = await api('/pipeline/'+stage,{method:'POST',headers:{'content-type':'application/json'},body:'{}'});
+    toast(stage+': '+summarize(r)); refresh();
+  }catch(e){ toast(stage+' failed: '+e.message); }
+  finally{ btn.disabled=false; btn.innerHTML=old; }
+}
+function summarize(r){
+  if(!r||typeof r!=='object') return 'done';
+  return Object.entries(r).filter(([,v])=>typeof v!=='object').map(([k,v])=>`${k} ${v}`).join(', ')||'done';
+}
+
+// ------------------------------------------------------------- shell
+const views = {dashboard:renderDashboard, jobs:renderJobs, review:renderReview, ask:renderAsk};
+function refresh(){ views[view](); }
+function go(v){ view=v; document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.view===v)); refresh(); }
+document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>go(b.dataset.view));
+document.querySelectorAll('[data-run]').forEach(b=>b.onclick=()=>runStage(b.dataset.run,b));
+
+(async()=>{
+  // dialog element
+  const dlg=document.createElement('dialog'); dlg.id='dlg';
+  dlg.innerHTML=`<div class="dh"><b id="dlgtitle">Application</b><button class="btn ghost sm" onclick="document.getElementById('dlg').close()">Close</button></div><div class="db" id="dlgbody"></div>`;
+  document.body.appendChild(dlg);
+  try{ await api('/dashboard'); $('#health').classList.add('ok'); }
+  catch{ $('#health').classList.add('err'); }
+  refresh();
+})();
+window.openApp=openApp; window.act=act; window.setOutcome=setOutcome; window.doAsk=doAsk; window.renderJobs=renderJobs;
+</script>
+</body>
+</html>

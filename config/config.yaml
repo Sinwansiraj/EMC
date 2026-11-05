@@ -1,0 +1,203 @@
+# Job Agent configuration. Safe to share: contains no personal data.
+# Personal answers live in private/profile.yaml (never commit or share that folder).
+
+# Scoring profiles. Each job is scored against every profile whose titles it matches, and the
+# best fit wins. A "related" title only counts when the description shows enough of that profile's
+# responsibilities (min_responsibilities) - so "Business Intelligence Analyst" is kept when it's
+# SQL + dashboards work, and dropped when it's actually a sales role with a fancy title.
+profiles:
+  data_scientist:
+    label: Data Scientist
+    titles: ["data scientist", "junior data scientist", "associate data scientist", "applied scientist"]
+    related_titles: ["machine learning analyst", "decision scientist", "data science analyst", "research analyst - data science"]
+    priority_skills: [machine learning, statistics, scikit-learn, xgboost, model evaluation, feature engineering, pandas, python, nlp, deep learning]
+    responsibilities: ["build (predictive|ml|machine learning) models", "model (evaluation|validation|performance)", "feature engineering",
+                       "statistic", "hypothesis|a/b test", "experiment", "classification|regression|clustering", "predict"]
+    min_responsibilities: 2
+    years_basis: technical
+  data_analyst:
+    label: Data Analyst
+    titles: ["data analyst", "junior data analyst", "analytics analyst", "associate data analyst"]
+    related_titles: ["business intelligence analyst", "bi analyst", "bi developer", "power bi developer", "reporting analyst",
+                     "mis analyst", "product analyst", "business analyst", "operations analyst", "insights analyst"]
+    priority_skills: [sql, power bi, excel, data visualization, dashboards, reporting, kpis, python, pandas, statistics]
+    responsibilities: ["\\bsql\\b|quer(y|ies)", "dashboard", "report", "kpi|metric", "power ?bi|tableau|looker",
+                       "excel", "insight", "stakeholder", "data (cleaning|quality|validation)"]
+    min_responsibilities: 3
+    years_basis: technical
+  customer_support_mgmt:
+    label: Customer Support Management
+    titles: ["customer support manager", "customer support lead", "customer support team lead", "support manager",
+             "customer service manager", "customer experience manager", "technical support lead"]
+    related_titles: ["customer success operations manager", "customer success manager", "support operations manager",
+                     "technical support engineer", "application support engineer", "service delivery manager",
+                     "client success manager", "escalation manager", "customer operations manager"]
+    priority_skills: [customer support, escalations, team leadership, operations, sla management, csat, incident response,
+                      root-cause analysis, documentation, crm, customer success]
+    responsibilities: ["escalat", "\\bslas?\\b|service level", "csat|nps|customer satisfaction", "lead (a|the) team|manage (a|the) team|team of",
+                       "ticket|zendesk|freshdesk|helpdesk", "customer (experience|retention|onboarding)", "incident|root cause",
+                       "process improvement|operations"]
+    min_responsibilities: 3
+    years_basis: customer_support
+  customer_support_engineer:
+    label: Customer Support Engineer
+    titles: ["customer support engineer", "technical support engineer", "product support engineer",
+             "application support engineer", "customer success engineer", "saas support engineer",
+             "technical support specialist", "customer support specialist"]
+    related_titles: ["support engineer", "l1 support", "l2 support", "production support engineer",
+                     "support analyst", "technical support analyst"]
+    priority_skills: [customer support, troubleshooting, sql, apis, python, ticketing, escalations, documentation,
+                      root-cause analysis, saas, linux, logs]
+    responsibilities: ["customer|client|end[- ]user", "ticket|zendesk|freshdesk|jira|servicenow|helpdesk", "troubleshoot|debug|diagnos",
+                       "escalat", "\\bslas?\\b|response time|resolution time", "\\bapis?\\b|logs?\\b|\\bsql\\b",
+                       "root cause|rca", "knowledge base|documentation|kb articles"]
+    min_responsibilities: 3
+    years_basis: technical
+  prompt_engineer:
+    label: Prompt Engineer
+    titles: ["prompt engineer", "llm prompt engineer", "ai prompt engineer", "prompt designer", "conversational ai designer"]
+    related_titles: ["generative ai specialist", "genai specialist", "ai content engineer", "llm specialist", "ai interaction designer",
+                     "llm evaluation", "ai evaluator"]
+    priority_skills: [llm, prompt engineering, prompt evaluation, structured outputs, rag, anthropic api, openai api, python, evaluation]
+    responsibilities: ["prompt", "\\bllms?\\b|large language model|gpt|claude|gemini", "evaluat", "json|structured output|function calling|tool use",
+                       "\\brag\\b|retrieval", "hallucination|guardrail", "test (cases|sets)|benchmark"]
+    min_responsibilities: 3
+    years_basis: technical
+  ai_builder:
+    label: AI Builder
+    titles: ["ai builder", "ai application engineer", "ai application developer", "generative ai developer", "genai developer",
+             "ai automation engineer", "ai developer", "forward deployed engineer"]
+    related_titles: ["python developer", "backend developer", "automation engineer", "full stack ai developer", "solutions engineer",
+                     "ai solutions engineer", "integration engineer", "software engineer - ai", "junior software engineer"]
+    priority_skills: [python, fastapi, rest apis, llm, automation, mcp, docker, react, typescript, playwright, postgresql, git]
+    responsibilities: ["\\bapis?\\b|integration", "automat", "\\bllms?\\b|generative ai|genai|openai|claude|agent",
+                       "end[- ]to[- ]end|full[- ]stack|prototype|build", "deploy", "python|fastapi|node"]
+    min_responsibilities: 3
+    years_basis: technical
+  ai_ml_engineer:
+    label: AI & ML Engineer
+    titles: ["machine learning engineer", "ml engineer", "junior ml engineer", "ai engineer", "ai/ml engineer", "ai ml engineer",
+             "applied ai engineer", "junior ai engineer"]
+    related_titles: ["machine learning developer", "llm engineer", "mlops engineer", "deep learning engineer", "nlp engineer",
+                     "computer vision engineer", "ai research engineer"]
+    priority_skills: [machine learning, ml pipelines, model serving, deployment, docker, fastapi, ci/cd, pytorch, transformers,
+                      aws, python, testing, mlops]
+    responsibilities: ["pipeline", "deploy|serving|inference|production", "train", "docker|kubernetes|container",
+                       "ci/cd|mlops|monitor", "pytorch|tensorflow|transformers|scikit", "\\bapis?\\b|microservice"]
+    min_responsibilities: 3
+    years_basis: technical
+
+search:
+  locations:
+    accept: ["remote", "coimbatore", "bengaluru", "bangalore", "chennai", "india"]
+    remote_keywords: ["remote", "work from home", "wfh", "anywhere in india", "distributed"]
+  # Words in a title that usually mean the role is well above 1.2 yrs of technical experience.
+  # Not applied to customer_support_mgmt, where hospitality leadership is genuinely relevant.
+  senior_title_words: ["senior", "sr.", "sr ", "lead", "principal", "staff", "head of", "director", "architect", "vp "]
+
+filters:
+  min_annual_salary_inr: 500000      # reject only when a job STATES a max below this
+  max_required_years_technical: 3    # e.g. "5+ years" for a tech role -> filtered out
+  min_match_score: 55                # below this, never auto-applied (still listed for you)
+
+limits:
+  daily_application_cap: 150         # hard ceiling across all sources
+  per_company_per_30_days: 3
+  duplicate_window_days: 90          # same company + similar title = duplicate
+  seconds_between_submissions: [45, 120]   # randomised pacing range
+
+autonomy:
+  # Phase 1: every submission waits for your approval until BOTH conditions are met.
+  approval_phase_days: 3
+  approval_phase_min_reviewed: 20
+  # Phase 2 auto-submit only when ALL of these hold; anything else falls back to approval.
+  auto_submit_requires:
+    platform_policy: auto            # see platforms below
+    min_score: 70
+    no_unanswered_required_fields: true
+    no_review_flagged_answers: true
+    no_captcha: true
+    invention_guard_passed: true
+
+# What the agent may do on each platform. "auto" = official public job APIs / standard ATS forms.
+# "assist" = it finds and prepares everything and opens the page, YOU click submit.
+# LinkedIn, Naukri, Indeed and similar sites prohibit bots in their terms and restrict accounts
+# that use them, so they are assist-only. Jobs from them come in via your alert emails.
+platforms:
+  greenhouse: auto
+  lever: auto
+  ashby: auto
+  workable: auto
+  remotive: assist     # aggregator: the actual apply page is elsewhere
+  remoteok: assist       # remote boards: apply page sits behind the board
+  weworkremotely: assist
+  himalayas: assist      # terms: apply via its applicationLink; job pages block bots
+  linkedin: assist
+  naukri: assist
+  indeed: assist
+  foundit: assist
+  instahyre: assist
+  other: assist        # any company career page not listed in trusted_career_domains
+trusted_career_domains: []   # add domains you've checked allow automated applications
+
+sources:
+  remotive:
+    enabled: true
+    queries: ["data analyst", "data scientist", "machine learning", "ai engineer", "llm", "prompt engineer",
+              "python", "business intelligence", "customer support", "customer success"]
+  # Remote-first boards with official public feeds. Only jobs open to applicants in India are kept
+  # (region / country / UTC+5:30 timezone checks, plus "US only"-style wording in descriptions).
+  remote_boards:
+    remoteok:                   # public JSON API (remoteok.com/api); terms: keep the Remote OK link, credit it
+      enabled: true
+      keywords: ["data", "machine learning", " ml ", "ai ", "llm", "python", "analyst", "analytics",
+                 "prompt", "support", "customer success", "forward deployed", "automation", "bi "]
+    weworkremotely:             # public RSS feeds; terms: link back to WWR
+      enabled: true
+      include_all_jobs_feed: true
+      categories: ["remote-back-end-programming-jobs", "remote-full-stack-programming-jobs",
+                   "remote-customer-support-jobs", "remote-devops-sysadmin-jobs", "remote-product-jobs"]
+      keywords: ["data", "machine learning", " ml ", "ai ", "llm", "python", "analyst", "analytics",
+                 "prompt", "support", "customer success", "forward deployed", "automation", "bi "]
+    himalayas:                  # public JSON API; optional free key: HIMALAYAS_API_KEY in private/.env
+      enabled: true
+      country: India
+      max_pages: 2              # 20 jobs per page, per query
+      skip_seniority: ["Senior", "Director", "Executive"]   # dropped only when ALL listed levels are these
+      queries: ["data analyst", "data scientist", "machine learning engineer", "ai engineer", "llm",
+                "prompt engineer", "python developer", "business intelligence", "forward deployed engineer",
+                "customer support", "customer success"]
+  jobspipe:                     # api.jobspipe.dev - LinkedIn, Indeed, ATS sites; key: JOBSPIPE_API_KEY in private/.env
+    enabled: true
+    # Free plan = 1,000 credits ONCE (1 credit per job returned; repeats within a month are free).
+    max_credits_per_run: 60       # hard cap per run (~16 days of daily runs from the free grant)
+    stop_when_credits_below: 50   # keep a reserve
+    page_size: 25                 # free plan maximum
+    country_code: IN
+    cities: ["Coimbatore", "Bengaluru", "Bangalore", "Chennai"]
+    remote: true                  # second search: remote jobs in India
+    max_age_days: 3
+    max_ghost_score: 60           # skip likely stale/evergreen postings (unscored ones pass)
+    extra_titles: ["python developer", "business intelligence analyst", "bi analyst", "power bi developer",
+                   "customer success manager", "llm engineer", "nlp engineer", "mlops engineer"]
+    exclude_title_words: ["senior", "sr", "sr.", "principal", "staff", "director", "head of", "architect",
+                          "vp", "vice president", "intern", "internship"]
+  ats_boards_file: config/companies.yaml
+  email_alerts:
+    enabled: false              # turn on after setting IMAP_* in private/.env
+    imap_host: imap.gmail.com
+    folder: INBOX
+    lookback_days: 3
+    senders: ["jobalerts-noreply@linkedin.com", "jobs-noreply@linkedin.com", "naukrialerts@naukri.com",
+              "info@naukri.com", "alert@indeed.com"]
+  manual_import_file: private/manual_jobs.csv
+
+tracking:
+  follow_up_after_days: 7
+  mark_no_response_after_days: 30
+
+llm:
+  # Optional. Without a key, tailoring uses deterministic templates (still fact-bank-only).
+  enabled: false
+  provider: anthropic
+  model: claude-sonnet-5-5

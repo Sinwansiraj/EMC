@@ -1,0 +1,21 @@
+private/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Python
+.venv/
+*.egg-info/
+
+# Node / Next.js frontend
+web-next/node_modules/
+web-next/.next/
+web-next/out/
+web-next/.vercel/
+.env
+.env.local
+.env*.local
+
+# Supabase CLI
+supabase/.temp/
+supabase/.branches/

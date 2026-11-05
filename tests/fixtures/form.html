@@ -1,0 +1,34 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Apply - Data Analyst</title></head>
+<body>
+<form id="f" onsubmit="event.preventDefault(); document.body.innerHTML='<h1>Thank you for applying!</h1>'; ">
+ <div id="step1">
+  <div class="field"><label for="fn">First Name *</label><input id="fn" required></div>
+  <div class="field"><label for="ln">Last Name *</label><input id="ln" required></div>
+  <div class="field"><label for="em">Email *</label><input id="em" type="email" required></div>
+  <div class="field"><label for="ph">Phone *</label><input id="ph" type="tel" required></div>
+  <div class="field"><label for="cv">Resume/CV *</label><input id="cv" type="file" required></div>
+  <div class="field"><label for="li">LinkedIn Profile</label><input id="li"></div>
+  <button type="button" onclick="document.getElementById('step1').style.display='none';document.getElementById('step2').style.display='block'">Next</button>
+ </div>
+ <div id="step2" style="display:none">
+  <div class="field"><label for="np">What is your notice period? *</label>
+   <select id="np" required><option value="">Select...</option><option>Immediate</option><option>15 days</option><option>1 month</option><option>2+ months</option></select></div>
+  <fieldset><legend>Will you now or in the future require visa sponsorship? *</legend>
+   <label><input type="radio" name="spons" value="y" required> Yes</label>
+   <label><input type="radio" name="spons" value="n"> No</label></fieldset>
+  <div class="field"><label for="py">How many years of experience do you have with Python? *</label>
+   <select id="py" required><option value="">Select...</option><option>0-1 years</option><option>1-3 years</option><option>3-5 years</option><option>5+ years</option></select></div>
+  <div class="field"><label for="ctc">Expected CTC (INR per annum) *</label><input id="ctc" required></div>
+  <div class="field"><label for="g">Gender</label>
+   <select id="g"><option value="">Select...</option><option>Male</option><option>Female</option><option>Decline to self-identify</option></select></div>
+  <div class="field" id="whybox"><label for="why">Why do you want to work at Acme? *</label><textarea id="why" required></textarea></div>
+  <div class="field"><label><input type="checkbox" id="pp" required> I consent to the processing of my personal data as described in the Privacy Policy *</label></div>
+  <div class="field"><label><input type="checkbox" id="nl"> Subscribe me to the newsletter</label></div>
+  <button type="submit">Submit Application</button>
+ </div>
+</form>
+<script>
+ if (location.hash === '#nowhy') { const w = document.getElementById('whybox'); w.parentNode.removeChild(w); }
+</script>
+</body></html>
