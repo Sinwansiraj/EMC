@@ -118,23 +118,51 @@ export function Meter({ value, max = 100, tone }: { value: number; max?: number;
 export type Bar = { label: React.ReactNode; value: number; display?: string; tone?: "good" | "warn" | "bad" };
 
 /** Horizontal single-hue magnitude bars. Identity is carried by the label,
- *  never by colour; tone is reserved for status and always shows its number. */
-export function BarChart({ data, max, unit = "", size }: { data: Bar[]; max?: number; unit?: string; size?: "sm" }) {
+ *  never by colour; tone is reserved for status and always shows its number.
+ *  Accessibility: screen readers get an equivalent data table (`caption` names
+ *  it); the visual bars are marked aria-hidden so values aren't dropped as a
+ *  generic "image". */
+export function BarChart({
+  data,
+  max,
+  unit = "",
+  size,
+  caption = "Chart data",
+}: {
+  data: Bar[];
+  max?: number;
+  unit?: string;
+  size?: "sm";
+  caption?: string;
+}) {
   const top = max ?? Math.max(1, ...data.map((d) => d.value));
   return (
-    <div className="bars" role="img" aria-label="bar chart">
-      {data.map((d, i) => {
-        const pct = Math.max(0, Math.min(100, (d.value / top) * 100));
-        return (
-          <div className={`bar-row ${size ?? ""}`.trim()} key={i}>
-            <span className="bar-label" title={typeof d.label === "string" ? d.label : undefined}>{d.label}</span>
-            <span className="bar-track">
-              <span className={`bar-fill ${d.tone ?? ""}`.trim()} style={{ width: `${pct}%` }} />
-            </span>
-            <span className="bar-val">{d.display ?? `${d.value}${unit}`}</span>
-          </div>
-        );
-      })}
+    <div className="bars">
+      <table className="sr-only">
+        <caption>{caption}</caption>
+        <tbody>
+          {data.map((d, i) => (
+            <tr key={i}>
+              <th scope="row">{d.label}</th>
+              <td>{d.display ?? `${d.value}${unit}`}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <div aria-hidden="true">
+        {data.map((d, i) => {
+          const pct = Math.max(0, Math.min(100, (d.value / top) * 100));
+          return (
+            <div className={`bar-row ${size ?? ""}`.trim()} key={i}>
+              <span className="bar-label" title={typeof d.label === "string" ? d.label : undefined}>{d.label}</span>
+              <span className="bar-track">
+                <span className={`bar-fill ${d.tone ?? ""}`.trim()} style={{ width: `${pct}%` }} />
+              </span>
+              <span className="bar-val">{d.display ?? `${d.value}${unit}`}</span>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

@@ -2,11 +2,12 @@ import Link from "next/link";
 import { db } from "@/lib/supabase";
 import type { Dashboard } from "@/lib/types";
 import { labelForRole, parseRoles } from "@/lib/roles";
+import { SUBMITTED_LIKE } from "@/lib/status";
 import { Card, CardHead, PageHead, Stat, StatusPill, EmptyState, ErrorState } from "@/components/ui";
 
 export const revalidate = 60;
 
-const sum = (rows: { status: string; c: number }[], statuses: string[]) =>
+const sum = (rows: { status: string; c: number }[], statuses: readonly string[]) =>
   rows.filter((r) => statuses.includes(r.status)).reduce((n, r) => n + r.c, 0);
 
 type FunnelStage = { label: string; value: number };
@@ -22,16 +23,22 @@ export default async function AgentControlCenter() {
     .maybeSingle();
 
   // Current user's own readiness (owner-scoped RLS via the session cookie).
-  const [{ data: seekers }, { data: resumes }] = await Promise.all([
+  const [seekersRes, resumesRes] = await Promise.all([
     supabase.from("job_seekers").select("id,target_roles,created_at,consent").order("created_at", { ascending: false }),
-    supabase.from("resumes").select("target_role"),
+    supabase.from("resumes").select("seeker_id,target_role"),
   ]);
+  const readinessError = seekersRes.error?.message ?? resumesRes.error?.message ?? null;
 
-  const profile = seekers?.[0] ?? null;
+  const profile = seekersRes.data?.[0] ?? null;
   const targetRoles = parseRoles(profile?.target_roles);
-  const coveredRoles = new Set((resumes ?? []).map((r) => r.target_role));
+  // Scope resume coverage to THIS profile only — the agent checks resumes by
+  // seeker_id, so coverage counted across older profiles would overstate it.
+  const coveredRoles = new Set(
+    (resumesRes.data ?? []).filter((r) => profile && r.seeker_id === profile.id).map((r) => r.target_role),
+  );
   const missingRoles = targetRoles.filter((r) => !coveredRoles.has(r));
-  const ready = targetRoles.length > 0 && missingRoles.length === 0;
+  // READY must also carry consent — the agent only processes consented seekers.
+  const ready = targetRoles.length > 0 && missingRoles.length === 0 && !!profile?.consent;
 
   const capturedAt = statsRow?.captured_at
     ? new Date(statsRow.captured_at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })
@@ -48,9 +55,9 @@ export default async function AgentControlCenter() {
     submittedToday = s.submitted_today ?? 0;
     unverified = s.unverified ?? 0;
     const jobsDiscovered = s.jobs_by_status.reduce((n, r) => n + r.c, 0);
-    const prepared = sum(s.apps_by_status, ["prepared", "awaiting_approval", "needs_human", "approved", "submitted", "submitted_unverified", "applied", "interview", "offer"]);
+    const prepared = sum(s.apps_by_status, ["prepared", "awaiting_approval", "needs_human", "approved", ...SUBMITTED_LIKE]);
     const awaiting = sum(s.apps_by_status, ["prepared", "awaiting_approval", "needs_human"]);
-    const submitted = sum(s.apps_by_status, ["submitted", "submitted_unverified", "applied", "interview", "offer"]);
+    const submitted = sum(s.apps_by_status, SUBMITTED_LIKE);
     const interview = sum(s.apps_by_status, ["interview"]);
     const offer = sum(s.apps_by_status, ["offer"]);
     funnel = [
@@ -93,6 +100,11 @@ export default async function AgentControlCenter() {
       {/* Readiness gate (your own data) */}
       <h2 className="section">Your readiness<span className="sub">the agent only applies to a role once it has a matching resume</span></h2>
       <Card>
+        {readinessError ? (
+          <div className="error" role="alert" style={{ marginBottom: 12 }}>
+            Couldn’t load your profile or resumes ({readinessError}). Readiness below may be inaccurate.
+          </div>
+        ) : null}
         {!profile ? (
           <EmptyState
             icon="🚦"
@@ -110,11 +122,15 @@ export default async function AgentControlCenter() {
                 </span>
                 <span className="muted">
                   {ready
-                    ? "every targeted role has a resume — the agent can apply for you"
-                    : `${missingRoles.length} role${missingRoles.length === 1 ? "" : "s"} still need a resume`}
+                    ? "every targeted role has a resume and consent is recorded — the agent can apply for you"
+                    : missingRoles.length > 0
+                      ? `${missingRoles.length} role${missingRoles.length === 1 ? "" : "s"} still need a resume`
+                      : !profile.consent
+                        ? "consent isn’t recorded — re-submit onboarding to authorise the agent"
+                        : "add at least one target role to get started"}
                 </span>
               </div>
-              {!ready ? <Link className="btn sm" href="/resume-studio">Add resumes →</Link> : null}
+              {!ready && missingRoles.length > 0 ? <Link className="btn sm" href="/resume-studio">Add resumes →</Link> : null}
             </div>
             <div className="cluster" style={{ marginTop: 14 }}>
               {targetRoles.length === 0 ? (

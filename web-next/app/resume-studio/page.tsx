@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
 import { Card, PageHead, EmptyState, ErrorState, Skeleton, Chip } from "@/components/ui";
@@ -36,12 +36,16 @@ export default function ResumeStudio() {
   const [targetRoles, setTargetRoles] = useState<string[]>([]);
   const [resumes, setResumes] = useState<Resume[]>([]);
   const [busyRole, setBusyRole] = useState<string | null>(null);
+  // Guards against an older refresh resolving after a newer one and clobbering state.
+  const loadSeq = useRef(0);
 
   const load = useCallback(async () => {
+    const seq = ++loadSeq.current;
     setLoading(true);
     setError(null);
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
+    if (seq !== loadSeq.current) return;
     if (!user) { setSignedIn(false); setLoading(false); return; }
 
     // Owner-scoped reads (RLS: owner = auth.uid()).
@@ -50,6 +54,8 @@ export default function ResumeStudio() {
       supabase.from("resumes").select("id,target_role,file_path,file_name,created_at").order("created_at", { ascending: false }),
     ]);
 
+    // A newer load() started while we awaited — drop this stale result.
+    if (seq !== loadSeq.current) return;
     if (seekersRes.error) { setError(seekersRes.error.message); setLoading(false); return; }
     if (resumesRes.error) { setError(resumesRes.error.message); setLoading(false); return; }
 
@@ -73,10 +79,20 @@ export default function ResumeStudio() {
   useEffect(() => { load(); }, [load]);
 
   async function download(path: string) {
+    // Open the tab synchronously inside the click so the browser keeps the user
+    // activation; navigate it once the signed URL is ready. Popup-blocked → fall
+    // back to a direct open.
+    const win = window.open("about:blank", "_blank");
+    if (win) { try { win.opener = null; } catch { /* ignore */ } }
     const supabase = createClient();
     const { data, error } = await supabase.storage.from("resumes").createSignedUrl(path, 60);
-    if (error || !data) { setError(error?.message || "Could not create a download link."); return; }
-    window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+    if (error || !data) {
+      if (win) win.close();
+      setError(error?.message || "Could not create a download link.");
+      return;
+    }
+    if (win) win.location.replace(data.signedUrl);
+    else window.open(data.signedUrl, "_blank", "noopener,noreferrer");
   }
 
   async function upload(role: string, file: File | null) {
@@ -92,6 +108,10 @@ export default function ResumeStudio() {
       setError("Add your profile first so resumes can be linked to it.");
       return;
     }
+    // Resumes already on file for this role — retired after the new one lands so
+    // each role keeps exactly one active resume.
+    const prior = resumes.filter((r) => r.target_role === role);
+
     const safe = file.name.replace(/[^\w.\-]+/g, "_");
     const path = `${user.id}/${role}/${Date.now()}-${safe}`;
     const up = await supabase.storage.from("resumes").upload(path, file, { upsert: true });
@@ -99,8 +119,22 @@ export default function ResumeStudio() {
     const { error: rErr } = await supabase.from("resumes").insert({
       seeker_id: seekerId, target_role: role, file_path: path, file_name: file.name,
     });
-    if (rErr) { setBusyRole(null); setError(rErr.message); return; }
-    setNotice(`Uploaded a new resume for ${labelFor(role)}.`);
+    if (rErr) {
+      // Don't leave an orphaned file with no row behind.
+      await supabase.storage.from("resumes").remove([path]).catch(() => {});
+      setBusyRole(null);
+      setError(rErr.message);
+      return;
+    }
+
+    // Retire the previous resume(s) for this role: delete the rows (owner-scoped)
+    // and best-effort remove their files (needs the storage delete policy).
+    if (prior.length) {
+      await supabase.from("resumes").delete().in("id", prior.map((r) => r.id));
+      await supabase.storage.from("resumes").remove(prior.map((r) => r.file_path)).catch(() => {});
+    }
+
+    setNotice(prior.length ? `Replaced the resume for ${labelFor(role)}.` : `Uploaded a new resume for ${labelFor(role)}.`);
     setBusyRole(null);
     await load();
   }
@@ -162,6 +196,11 @@ export default function ResumeStudio() {
                 })
               )}
             </div>
+            <p className="note mb-0" style={{ marginTop: 12 }}>
+              Uploading a resume marks a role <b>ready</b> and stores the file privately for your review.
+              When the local agent prepares an application it tailors from its own configured master
+              resume for that role family — syncing an uploaded file into a run is a manual, agent-side step.
+            </p>
           </Card>
 
           {/* Per-role management */}

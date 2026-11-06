@@ -88,6 +88,11 @@ export default function GetStarted() {
   function validateStep(s: number): string | null {
     if (s === 0) {
       if (!base.full_name.trim() || !base.email.trim()) return "Name and email are required.";
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(base.email.trim())) return "Enter a valid email address.";
+      if (base.experience_years) {
+        const yrs = Number(base.experience_years);
+        if (!Number.isFinite(yrs) || yrs < 0) return "Years of experience must be zero or more.";
+      }
     }
     if (s === 1) {
       const complete = entries.filter((en) => en.role && en.file);
@@ -126,9 +131,7 @@ export default function GetStarted() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setBusy(false); setError("Please sign in again."); return; }
     const targetRoles = entries.map((en) => en.role).join(", ");
-
-    // owner defaults to auth.uid() via RLS; select the new id back (owner can read own rows).
-    const { data: seeker, error: seekErr } = await supabase.from("job_seekers").insert({
+    const payload = {
       full_name: base.full_name,
       email: base.email,
       phone: base.phone || null,
@@ -142,8 +145,26 @@ export default function GetStarted() {
       github_url: base.github_url || null,
       notes: base.notes || null,
       consent: true,
-    }).select("id").single();
-    if (seekErr || !seeker) { setBusy(false); setError(seekErr?.message || "Could not save details."); return; }
+    };
+
+    // Update the existing profile if the user already has one, so re-running
+    // onboarding to edit roles doesn't create a duplicate seeker. owner defaults
+    // to auth.uid() via RLS and the owner can read/update their own rows.
+    const { data: existing, error: exErr } = await supabase
+      .from("job_seekers").select("id").order("created_at", { ascending: false }).limit(1);
+    if (exErr) { setBusy(false); setError(exErr.message); return; }
+
+    let seekerId: string;
+    if (existing && existing.length) {
+      seekerId = existing[0].id;
+      const { error: updErr } = await supabase.from("job_seekers").update(payload).eq("id", seekerId);
+      if (updErr) { setBusy(false); setError(updErr.message); return; }
+    } else {
+      const { data: seeker, error: seekErr } = await supabase
+        .from("job_seekers").insert(payload).select("id").single();
+      if (seekErr || !seeker) { setBusy(false); setError(seekErr?.message || "Could not save details."); return; }
+      seekerId = seeker.id;
+    }
 
     for (const en of entries) {
       const file = en.file!;
@@ -153,7 +174,7 @@ export default function GetStarted() {
       const up = await supabase.storage.from("resumes").upload(path, file, { upsert: true });
       if (up.error) { setBusy(false); setError(`Upload failed for ${labelFor(en.role)}: ${up.error.message}`); return; }
       const { error: rErr } = await supabase.from("resumes").insert({
-        seeker_id: seeker.id, target_role: en.role, file_path: path, file_name: file.name,
+        seeker_id: seekerId, target_role: en.role, file_path: path, file_name: file.name,
       });
       if (rErr) { setBusy(false); setError(rErr.message); return; }
     }

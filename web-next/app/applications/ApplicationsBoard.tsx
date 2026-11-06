@@ -11,7 +11,7 @@ const COLUMNS: { key: string; label: string; statuses: string[] }[] = [
   { key: "submitted", label: "Submitted", statuses: ["submitted", "submitted_unverified", "applied"] },
   { key: "interview", label: "Interview", statuses: ["interview"] },
   { key: "offer", label: "Offer", statuses: ["offer"] },
-  { key: "closed", label: "Closed", statuses: ["rejected", "withdrawn", "failed"] },
+  { key: "closed", label: "Closed", statuses: ["rejected", "withdrawn", "failed", "no_response"] },
 ];
 
 export default function ApplicationsBoard({ apps }: { apps: Application[] }) {

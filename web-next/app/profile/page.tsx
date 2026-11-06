@@ -24,6 +24,9 @@ export default function ProfilePage() {
   const [consent, setConsent] = useState<boolean>(false);
   const [accountEmail, setAccountEmail] = useState<string | null>(null);
   const [form, setForm] = useState<Profile>(EMPTY);
+  // Snapshot of the values last loaded/saved, so we only write fields the user
+  // actually changed (a full-form write would clobber a concurrent edit).
+  const [loaded, setLoaded] = useState<Profile>(EMPTY);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -48,7 +51,7 @@ export default function ProfilePage() {
     if (row) {
       setProfileId(row.id);
       setConsent(!!row.consent);
-      setForm({
+      const next: Profile = {
         full_name: row.full_name ?? "",
         email: row.email ?? user.email ?? "",
         phone: row.phone ?? "",
@@ -60,7 +63,9 @@ export default function ProfilePage() {
         portfolio_url: row.portfolio_url ?? "",
         github_url: row.github_url ?? "",
         notes: row.notes ?? "",
-      });
+      };
+      setForm(next);
+      setLoaded(next);
     }
     setLoading(false);
   }, []);
@@ -71,6 +76,13 @@ export default function ProfilePage() {
     try {
       if (localStorage.getItem("emc-theme") === "light") setTheme("light");
     } catch { /* ignore */ }
+    // Keep in sync if the theme is changed elsewhere (e.g. the nav toggle).
+    const onTheme = (e: Event) => {
+      const t = (e as CustomEvent<"dark" | "light">).detail;
+      if (t === "dark" || t === "light") setTheme(t);
+    };
+    window.addEventListener("emc-theme", onTheme);
+    return () => window.removeEventListener("emc-theme", onTheme);
   }, []);
 
   const set = (k: keyof Profile) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
@@ -81,6 +93,15 @@ export default function ProfilePage() {
     if (next === "light") document.documentElement.setAttribute("data-theme", "light");
     else document.documentElement.removeAttribute("data-theme");
     try { localStorage.setItem("emc-theme", next); } catch { /* ignore */ }
+    // Tell the nav (and any other listener) so its toggle doesn't go stale.
+    try { window.dispatchEvent(new CustomEvent("emc-theme", { detail: next })); } catch { /* ignore */ }
+  }
+
+  // Convert a form field to its DB value (nullable text, numeric years).
+  function dbValue(k: keyof Profile, v: string): string | number | null {
+    if (k === "experience_years") return v ? Number(v) : null;
+    if (k === "full_name" || k === "email" || k === "work_mode") return v;
+    return v || null;
   }
 
   async function save(e: React.FormEvent) {
@@ -88,25 +109,24 @@ export default function ProfilePage() {
     setError(null);
     setNotice(null);
     if (!form.full_name.trim() || !form.email.trim()) { setError("Name and email are required."); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) { setError("Enter a valid email address."); return; }
+    if (form.experience_years && !(Number(form.experience_years) >= 0)) { setError("Years of experience can’t be negative."); return; }
     if (!profileId) { setError("No profile to update — complete onboarding first."); return; }
+
+    // Only write fields that actually changed, so a save from another tab isn't
+    // overwritten by stale values this form never touched.
+    const changes: Record<string, string | number | null> = {};
+    (Object.keys(form) as (keyof Profile)[]).forEach((k) => {
+      if (form[k] !== loaded[k]) changes[k] = dbValue(k, form[k]);
+    });
+    if (Object.keys(changes).length === 0) { setNotice("No changes to save."); return; }
 
     setBusy(true);
     const supabase = createClient();
-    const { error } = await supabase.from("job_seekers").update({
-      full_name: form.full_name,
-      email: form.email,
-      phone: form.phone || null,
-      preferred_locations: form.preferred_locations || null,
-      work_mode: form.work_mode,
-      experience_years: form.experience_years ? Number(form.experience_years) : null,
-      expected_salary: form.expected_salary || null,
-      linkedin_url: form.linkedin_url || null,
-      portfolio_url: form.portfolio_url || null,
-      github_url: form.github_url || null,
-      notes: form.notes || null,
-    }).eq("id", profileId);
+    const { error } = await supabase.from("job_seekers").update(changes).eq("id", profileId);
     setBusy(false);
     if (error) { setError(error.message); return; }
+    setLoaded(form);
     setNotice("Profile saved.");
   }
 

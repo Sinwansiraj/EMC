@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { db } from "@/lib/supabase";
 import type { Dashboard } from "@/lib/types";
+import { SUBMITTED_LIKE } from "@/lib/status";
 import {
   Card,
   CardHead,
@@ -14,7 +15,7 @@ import {
 
 export const revalidate = 60;
 
-const sum = (rows: { status: string; c: number }[], statuses: string[]) =>
+const sum = (rows: { status: string; c: number }[], statuses: readonly string[]) =>
   rows.filter((r) => statuses.includes(r.status)).reduce((n, r) => n + r.c, 0);
 
 function StatusList({ rows }: { rows: { status: string; c: number }[] }) {
@@ -76,7 +77,7 @@ export default async function Page() {
 
   // Derived KPIs — all computed from the read-model, never hardcoded.
   const totalApps = d.apps_by_status.reduce((n, r) => n + r.c, 0);
-  const submittedLike = sum(d.apps_by_status, ["submitted", "submitted_unverified", "applied", "interview", "offer"]);
+  const submittedLike = sum(d.apps_by_status, SUBMITTED_LIKE);
   const interviews = sum(d.apps_by_status, ["interview"]);
   const offers = sum(d.apps_by_status, ["offer"]);
   const waiting = d.waiting_on_you?.length ?? 0;

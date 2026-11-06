@@ -42,6 +42,14 @@ export default function Nav() {
     } catch {
       /* storage may be blocked — dark default is fine */
     }
+    // Reflect theme changes made elsewhere (e.g. Profile preferences) so this
+    // toggle never acts on stale state.
+    const onTheme = (e: Event) => {
+      const t = (e as CustomEvent<"dark" | "light">).detail;
+      if (t === "dark" || t === "light") setTheme(t);
+    };
+    window.addEventListener("emc-theme", onTheme);
+    return () => window.removeEventListener("emc-theme", onTheme);
   }, []);
 
   // Close the mobile menu on navigation.
@@ -57,6 +65,8 @@ export default function Nav() {
     } catch {
       /* ignore */
     }
+    // Broadcast so other views (e.g. Profile preferences) stay in sync.
+    try { window.dispatchEvent(new CustomEvent("emc-theme", { detail: next })); } catch { /* ignore */ }
   }
 
   async function signOut() {
