@@ -5,7 +5,16 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
 // Everything except the landing page, auth pages, and assets requires sign-in.
-const PROTECTED = ["/dashboard", "/jobs", "/applications", "/get-started"];
+const PROTECTED = [
+  "/dashboard",
+  "/jobs",
+  "/applications",
+  "/get-started",
+  "/resume-studio",
+  "/agent",
+  "/intelligence",
+  "/profile",
+];
 
 export const updateSession = async (request: NextRequest) => {
   let supabaseResponse = NextResponse.next({ request: { headers: request.headers } });
